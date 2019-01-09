@@ -1,13 +1,18 @@
 package com.qs408;
 
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.media.MediaPlayer;
 import android.os.Handler;
 import android.text.Layout;
@@ -23,14 +28,21 @@ import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.wiget.BarcodeCreater;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+
 import java.io.UnsupportedEncodingException;
+import java.util.ArrayList;
+
+
 
 public class PrintModule extends ReactContextBaseJavaModule implements LifecycleEventListener {
     private static String mCurDev1 = "";
 
     private static int mComFd = -1;
     static CommonApi mCommonApi;
-
+    private static  final Layout.Alignment BOLD_NORMAL = Layout.Alignment.ALIGN_NORMAL;
+    private static  final Layout.Alignment BOLD_CENTER = Layout.Alignment.ALIGN_CENTER;
 
     public static boolean isCanprint = false;
 
@@ -50,10 +62,9 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
     private static String pin_2 = "56";// 二维
     private Context context;
     public static StringBuffer sb1 = new StringBuffer();
-
     // SCAN按键监听
     private ScanBroadcastReceiver scanBroadcastReceiver;
-    // MBroadcastReceiver mBroadcastReceiver;
+    MBroadcastReceiver mBroadcastReceiver;
 
     Handler h;
 
@@ -68,54 +79,101 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
     }
 
     @ReactMethod
-    private void init() {
+    private void init(){
+        initGPIO();
+        openGPIO();
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                // TODO Auto-generated method stub
+                if (mComFd > 0) {
+                    open();
+                    isOpen = true;
+                    readData();
+                    // Toast.makeText(getApplicationContext(), "扫描头初始化中",
+                    // 0).show();
+                    // 默认开启黑标
+                    send(new byte[] { 0x1F, 0x1B, 0x1F, (byte) 0x80, 0x04,
+                            0x05, 0x06, 0x66 });
+
+                    // //// //调节打印浓度为39，十六进制为0x27
+                    // App.send(new byte[] { 0x1b, 0x23, 0x23, 0x53,0x54, 0x44,
+                    // 0x50,
+                    // 0x27});
+                } else {
+                    isOpen = false;
+                }
+            }
+        }, 2000);
+       mBroadcastReceiver = new MBroadcastReceiver();
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction("NOPAPER");
+      context.registerReceiver(mBroadcastReceiver, intentFilter);
+    }
+
+    public static void open() {
+        /**
+         * 1、拉高55,56脚电平(APP->Printer) 1B 23 23 XXXX 其中XXXX为ASCII码:56UP 即1B 23 23
+         * 35 36 55 50 单片机收到拉高55,56脚电平
+         */
+        // 进来就拉高55和56脚
+        send(new byte[] { 0x1B, 0x23, 0x23, 0x35, 0x36, 0x55, 0x50 });
+
+    }
+
+    public  void initGPIO() {
         mCommonApi = new CommonApi();
         //5501为MT1,408为 MT3
         mComFd = mCommonApi.openCom("/dev/ttyMT3", 115200, 8, 'N', 1);
-
         if (mComFd > 0) {
+            isOpen = true;
             Toast.makeText(getReactApplicationContext(), "init success", Toast.LENGTH_SHORT).show();
         }
-//        mBroadcastReceiver = new MBroadcastReceiver();
-//        IntentFilter intentFilter = new IntentFilter();
-//        intentFilter.addAction("NOPAPER");
-//        context.registerReceiver(mBroadcastReceiver, intentFilter);
     }
+    public static void openGPIO() {
+
+        mCommonApi.setGpioDir(58, 0);
+        mCommonApi.getGpioIn(58);
+
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                // TODO Auto-generated method stub
+
+                mCommonApi.setGpioDir(58, 1);
+                mCommonApi.setGpioOut(58, 1);
+
+                // 黑标临界电压
+                // App.send(new byte[] { 0x1b, 0x23, 0x23, 0x53, 0x42, 0x43,
+                // 0x56,
+                // 0x14, 0x05 });
+
+            }
+        }, 1000);
+
+    }
+
     @ReactMethod
-    public void printText(int size,int align,String text){
-        switch (align) {
-            case 0:
-                send(new byte[] { 0x1b, 0x61, 0x00 });
-                break;
-            case 1:
-                send(new byte[] { 0x1b, 0x61, 0x01 });
-                break;
-            case 2:
-                send(new byte[] { 0x1b, 0x61, 0x02 });
-                break;
+    public void printText(){
+        send(new byte[] { 0x1d, 0x61, 0x00 });
+        new Handler().postDelayed(new Runnable() {
+            public void run() {
+                if (isCanprint) {
 
-            default:
-                break;
-        }
-        switch (size) {
-            case 1:
-                send(new byte[] { 0x1D, 0x21, 0x00 });
-                break;
-            case 2:
-                send(new byte[] { 0x1D, 0x12, 0x11 });
-                break;
+                    String a = "dwqdwq";
+                    try {
+                        send(a.getBytes("UTF-8"));
+                        send(new byte[]{0x1d,0x0c});
 
-            default:
-                break;
-        }
-        //打印
-        send(new byte[]{0x1B,0x23,0x23,0x53,0x4C,0x41,0x4E,0x29});
-        try {
-            send((text+"\n").getBytes("UTF-8"));
-        } catch (UnsupportedEncodingException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+                        //��ӡ5�����з���˺ֽ������ֽ���ж�ʹ�ÿ��У�
+                        send(new byte[] { 0x0a, 0x0a,0x0a,0x0a});
+                    } catch (UnsupportedEncodingException e) {
+                        e.printStackTrace();
+                    }
+
+                }
+            }
+        }, 500);
     }
     @ReactMethod
     public  void printBitmap(String text){
@@ -188,70 +246,395 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
         send(printData);
     }
 
+//    @ReactMethod
+//    public void printWithMergeBitMap(String company, String address, String phone,
+//                                     String mst, String ms, String kh, String sv,String kv, String ts,
+//                                     String tram, String nv, String gia, String ngay){
+//        Log.d("print", "printWithMergeBitMap");
+//        String str1 = company;
+//        String str5 = kv.toUpperCase();
+//        String date = "\tIn ngày: " + ngay;
+//        StringBuffer sb = new StringBuffer();
+//        sb.append("\t"+address+"\n");
+//        sb.append("\tĐT: "+ phone +"\t\t\t\t\t\tMST："+ mst +"\n" );
+//        sb.append(("\tMẫu số："+ms+"\t\t\t\t\t Ký hiệu："+kh+"\t\t\t\t\t\n"));
+//        sb.append("\tSố vé: "+sv+"\t");
+//        String merge_str = sb.toString();
+//
+//        StringBuffer sb1 = new StringBuffer();
+//        // sb1.append("\t\t\t\t\t\t (Liên 2: Giao cho khách hàng)\n");
+//        sb1.append("\t"+"Tuyến số: "+ts+"\t\t\tTrạm: " + tram +"\n");
+//        sb1.append("\tNV: "+nv+"\n");
+//        // sb1.append(" Trạm: " + tram +"\n");
+//        sb1.append("\tGiá vé: "+gia+ " VNĐ/Lượt");
+//        // sb1.append("\t(Giá vé đã bao gồm bảo hiểm hành khách)");
+//        String merge_str1= sb1.toString();
+//
+//        StringBuffer sb2 = new StringBuffer();
+//        sb2.append("\tIN TẠI: "+company+"\n\n\n");
+//
+//        String merge_str2= sb2.toString();
+//
+//
+//        StringBuffer sup1 = new StringBuffer();
+//        sup1.append("(Liên 2: Giao cho khách hàng)");
+//        Bitmap btm_sup1 = textAsBitmap2(sup1.toString(), 550, 20);
+//
+//        StringBuffer sup2 = new StringBuffer();
+//        sup2.append("\t(Giá vé đã bao gồm bảo hiểm hành khách)");
+//        Bitmap btm_sup2 = textAsBitmap2(sup2.toString(), 550, 20);
+//
+//        Bitmap btm_name1 = textAsBitmap2(str1.toUpperCase(), 550, 24);
+//        Bitmap btm_name2 = textAsBitmap1(merge_str, 550, 20);
+//        Bitmap btm_name1_2 = twoBtmap2One(btm_name1, btm_name2);
+//
+//
+//
+//
+//        Bitmap btm_name3 = textAsBitmap2(str5, 550, 30);
+//        Bitmap btm_merge_sup1 = twoBtmap2One(btm_name3,  btm_sup1);
+//        Bitmap str_bitmap = twoBtmap2One(btm_name1_2, btm_merge_sup1);
+//
+//        Bitmap btm_merge_str1 = textAsBitmap1(merge_str1, 550, 26);
+//        Bitmap btm_merge_sup2 = twoBtmap2One(btm_merge_str1,  btm_sup2);
+//        Bitmap btm_merge_str2 = twoBtmap2One(str_bitmap, btm_merge_sup2);
+//
+//        Bitmap btm_sb3 = textAsBitmap1(date, 550, 25);
+//        Bitmap btm_merge_str3 = twoBtmap2One(btm_merge_str2, btm_sb3);
+//
+//        Bitmap btm_name4 = textAsBitmap1(merge_str2, 550, 20);
+//        Bitmap btm_merge_str4 = twoBtmap2One(btm_merge_str3, btm_name4);
+//
+//        str_bitmap = newBitmap(btm_merge_str4);
+//        final  byte[] b=draw2PxPoint(str_bitmap);
+//        send(new byte[] { 0x1d, 0x61, 0x00 });
+//        new Handler().postDelayed(new Runnable() {
+//            public void run() {
+//                if (isCanprint) {
+//                    send(b);
+//                    send(new byte[]{0x1d,0x0c});
+//
+//                    //��ӡ5�����з���˺ֽ������ֽ���ж�ʹ�ÿ��У�
+//                    send(new byte[] { 0x0a, 0x0a,0x0a,0x0a});
+//
+//                }
+//            }
+//        }, 500);
+//
+//    }
     @ReactMethod
-    public void printWithMergeBitMap(String company, String address, String phone,
+    public void printWithMergeBitMap1(String company, String address, String phone,
                                      String mst, String ms, String kh, String sv,String kv, String ts,
                                      String tram, String nv, String gia, String ngay){
-        Log.d("print", "printWithMergeBitMap");
         String str1 = company;
         String str5 = kv.toUpperCase();
         String date = "\tIn ngày: " + ngay;
         StringBuffer sb = new StringBuffer();
-        sb.append("\t"+address+"\n");
-        sb.append("\tĐT: "+ phone +"\t\t\t\t\t\tMST："+ mst +"\n" );
-        sb.append(("\tMẫu số："+ms+"\t\t\t\t\t Ký hiệu："+kh+"\t\t\t\t\t\n"));
-        sb.append("\tSố vé: "+sv+"\t");
+        sb.append(address+"\n");
+        sb.append("ĐT: "+ phone +"\t\t\t\t\t\t\t MST："+ mst +"\n" );
+        sb.append(("Mẫu số："+ms+"\t\t\t\t\t\t Ký hiệu："+kh+"\t\t\t\t\t\n"));
+        sb.append("Số vé: "+sv+"\t");
         String merge_str = sb.toString();
 
         StringBuffer sb1 = new StringBuffer();
         // sb1.append("\t\t\t\t\t\t (Liên 2: Giao cho khách hàng)\n");
-        sb1.append("\t"+"Tuyến số: "+ts+"\t\t\tTrạm: " + tram +"\n");
-        sb1.append("\tNV: "+nv+"\n");
+        sb1.append("Tuyến số: "+ts+"\t\t\tTrạm: " + tram +"\n");
+        sb1.append("NV: "+nv+"\n");
         // sb1.append(" Trạm: " + tram +"\n");
-        sb1.append("\tGiá vé: "+gia+ " VNĐ/Lượt");
+        sb1.append("Giá vé: "+gia+ " VNĐ/Lượt");
         // sb1.append("\t(Giá vé đã bao gồm bảo hiểm hành khách)");
         String merge_str1= sb1.toString();
 
         StringBuffer sb2 = new StringBuffer();
-        sb2.append("\tIN TẠI: "+company+"\n\n\n");
+        sb2.append("In tại: "+company+"\n");
+        sb2.append("MST: "+mst +"\n\n\n\n\n");
 
         String merge_str2= sb2.toString();
 
 
         StringBuffer sup1 = new StringBuffer();
         sup1.append("(Liên 2: Giao cho khách hàng)");
-        Bitmap btm_sup1 = textAsBitmap2(sup1.toString(), 550, 20);
+        Bitmap btm_sup1 = textAsBitmap2(sup1.toString(), 600, 20);
 
         StringBuffer sup2 = new StringBuffer();
         sup2.append("\t(Giá vé đã bao gồm bảo hiểm hành khách)");
-        Bitmap btm_sup2 = textAsBitmap2(sup2.toString(), 550, 20);
+        Bitmap btm_sup2 = textAsBitmap2(sup2.toString(), 600, 20);
 
-        Bitmap btm_name1 = textAsBitmap2(str1.toUpperCase(), 550, 24);
-        Bitmap btm_name2 = textAsBitmap1(merge_str, 550, 20);
+        Bitmap btm_name1 = textAsBitmap1(str1.toUpperCase(), 600, 21);
+        Bitmap btm_name2 = textAsBitmap1(merge_str, 600, 20);
         Bitmap btm_name1_2 = twoBtmap2One(btm_name1, btm_name2);
 
 
 
 
-        Bitmap btm_name3 = textAsBitmap2(str5, 550, 30);
+        Bitmap btm_name3 = textAsBitmapBold(str5, 600, 30, BOLD_CENTER);
         Bitmap btm_merge_sup1 = twoBtmap2One(btm_name3,  btm_sup1);
         Bitmap str_bitmap = twoBtmap2One(btm_name1_2, btm_merge_sup1);
 
-        Bitmap btm_merge_str1 = textAsBitmap1(merge_str1, 550, 26);
+        Bitmap btm_merge_str1 = textAsBitmap1(merge_str1, 600, 26);
         Bitmap btm_merge_sup2 = twoBtmap2One(btm_merge_str1,  btm_sup2);
         Bitmap btm_merge_str2 = twoBtmap2One(str_bitmap, btm_merge_sup2);
 
-        Bitmap btm_sb3 = textAsBitmap1(date, 550, 25);
+        Bitmap btm_sb3 = textAsBitmap1(date, 600, 25);
         Bitmap btm_merge_str3 = twoBtmap2One(btm_merge_str2, btm_sb3);
 
-        Bitmap btm_name4 = textAsBitmap1(merge_str2, 550, 20);
+        Bitmap btm_name4 = textAsBitmap1(merge_str2, 600, 18);
         Bitmap btm_merge_str4 = twoBtmap2One(btm_merge_str3, btm_name4);
         str_bitmap = newBitmap(btm_merge_str4);
         byte[] b=draw2PxPoint(str_bitmap);
         send(b);
 
     }
+    @ReactMethod
+    public void printTotal(
+            String company, String address, String phone,
+            String mst, String kh,
+            String nvBv, String nvLx, String sx,
+            String napthe, String quetthe, String totals, String ticket, String timeDn,
+            String hours, String day
+    ) throws JSONException {
+//        String a = "[{ id: 24000, name: 24 }, { id: 2500, name: 24 }]";
+        StringBuffer sbBigTt = new StringBuffer();
+        sbBigTt.append("TỔNG KẾT");
 
+        StringBuffer sbTitle = new StringBuffer();
+        sbTitle.append(company+ "\n");
+        sbTitle.append(address+"\n");
+        sbTitle.append("ĐT: "+ phone +"\n");
+        sbTitle.append("Ký hiệu："+kh+"\t\t\t\t\t\t\t" +"MST："+ mst+ "\n");
+
+        Bitmap btm_title = textAsBitmap1(sbTitle.toString(), 600, 20);
+        Bitmap btm_big_title = textAsBitmapBold(sbBigTt.toString(), 600, 30, BOLD_CENTER);
+        Bitmap btm_merge_all_title = twoBtmap2One(btm_title, btm_big_title);
+
+        StringBuffer sbNv = new StringBuffer();
+
+        sbNv.append("Tên nv bán vé: " + nvBv +"\n");
+        sbNv.append("Tên nv lái xe: " + nvLx + "\n");
+        sbNv.append("Số xe: " + sx + "\n");
+
+        Bitmap btm_nv = textAsBitmap1(sbNv.toString(), 600, 23);
+        Bitmap merge_title_nv = twoBtmap2One(btm_merge_all_title, btm_nv);
+
+        StringBuffer sbCol1 = new StringBuffer();
+        sbCol1.append("Mệnh giá");
+        StringBuffer sbCol2 = new StringBuffer();
+        sbCol2.append("Số lượng");
+
+
+        Bitmap btm_col1 = textAsBitmap1(sbCol1.toString(),400, 25);
+        Bitmap btm_col2 = textAsBitmap1(sbCol2.toString(),200, 25);
+        Bitmap merge_btm_col_1_2 = twoBtmap2One1(btm_col1, btm_col2);
+        StringBuffer sb_line = new StringBuffer();
+        sb_line.append("- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -");
+        Bitmap btm_line = textAsBitmap1(sb_line.toString(), 600, 20);
+
+        Bitmap btm_merge_col_line = twoBtmap2One(merge_btm_col_1_2, btm_line);
+        StringBuffer sbBottomCol1 = new StringBuffer();
+        StringBuffer sbBottomCol2 = new StringBuffer();
+        sbBottomCol1.append("Nạp thẻ\n");
+        sbBottomCol1.append("Quẹt thẻ");
+
+        sbBottomCol2.append(napthe + "\n");
+        sbBottomCol2.append("-" + quetthe + "");
+
+        Bitmap btm_col1_bottom = textAsBitmap1(sbBottomCol1.toString(),400, 20);
+        Bitmap btm_col2_bottom = textAsBitmap1(sbBottomCol2.toString(),200, 20);
+
+        Bitmap merge_btm_col_bottom = twoBtmap2One1(btm_col1_bottom, btm_col2_bottom);
+        Bitmap btm_merge_col_line_2 = twoBtmap2One(btm_line, merge_btm_col_bottom);
+
+        StringBuffer sbPrice = new StringBuffer();
+        StringBuffer sbCount = new StringBuffer();
+        JSONArray jsonResponse = new JSONArray(ticket);
+
+        for (int i=0;i<jsonResponse.length();i++) {
+            if(i == jsonResponse.length() -1){
+                sbPrice.append(jsonResponse.getJSONObject(i).getString("price").toString()+ " VNĐ");
+                sbCount.append(jsonResponse.getJSONObject(i).getString("qty").toString() +"");
+            }else{
+                sbPrice.append(jsonResponse.getJSONObject(i).getString("price").toString()+ " VNĐ\n");
+                sbCount.append(jsonResponse.getJSONObject(i).getString("qty").toString() +"\n");
+            }
+        }
+        // send(new byte[] { 0x1b, 0x61, 0x01 });
+
+
+        Bitmap bitmap = textAsBitmap1(sbPrice.toString(),400, 20);
+        Bitmap bitmap1 = textAsBitmap1(sbCount.toString(),200, 20);
+        Bitmap merge_btm = twoBtmap2One1(bitmap, bitmap1);
+        Bitmap merge_btm_col_line_1 = twoBtmap2One(btm_merge_col_line, merge_btm);
+        Bitmap merge_btm_all_line = twoBtmap2One(merge_btm_col_line_1, btm_merge_col_line_2);
+
+        StringBuffer sbThu = new StringBuffer();
+        sbThu.append("Thu:\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t" + totals + " VNĐ");
+
+        Bitmap btm_thu = textAsBitmapBold(sbThu.toString(), 600, 26, BOLD_NORMAL);
+        Bitmap btm_merge_content_thu = twoBtmap2One(merge_btm_all_line, btm_thu);
+
+        Bitmap btm_merge_header_content = twoBtmap2One(merge_title_nv, btm_merge_content_thu);
+
+        StringBuffer sbFooter = new StringBuffer();
+        sbFooter.append("Đăng nhập lúc: "+timeDn + "\n");
+        sbFooter.append("In lúc: "+ hours + "\tNgày "+ day +"\n");
+        sbFooter.append("In tại: 90 Phan Bội Châu Tam Kỳ, QN\n");
+        sbFooter.append("MST: "+ mst+"\n\n\n\n");
+
+        Bitmap btm_footer = textAsBitmap1(sbFooter.toString(), 600, 20);
+        Bitmap btm_merge_header_content_footer = twoBtmap2One(btm_merge_header_content, btm_footer);
+        btm_merge_header_content_footer =  newBitmap(btm_merge_header_content_footer);
+        byte[] b=draw2PxPoint(btm_merge_header_content_footer);
+        send(b);
+    }
+    @ReactMethod
+    public void printTest(
+            String company, String address, String phone,
+            String mst, String kh,
+            String nvBv, String nvLx, String sx
+    ) throws JSONException {
+        String a = "[{ id: 24000, name: 24 }, { id: 2500, name: 24 }]";
+        StringBuffer sbBigTt = new StringBuffer();
+        sbBigTt.append("TỔNG KẾT");
+
+        StringBuffer sbTitle = new StringBuffer();
+        sbTitle.append("\t\t\t"+company+ "\n");
+        sbTitle.append(address+"\n");
+        sbTitle.append("ĐT: "+ phone +"\n");
+        sbTitle.append("Ký hiệu："+kh+"\t\t\t\t\t" +"MST："+ mst+ "\n");
+
+        Bitmap btm_title = textAsBitmap1(sbTitle.toString(), 550, 20);
+        Bitmap btm_big_title = textAsBitmapBold(sbBigTt.toString(), 550, 30, BOLD_CENTER);
+        Bitmap btm_merge_all_title = twoBtmap2One(btm_title, btm_big_title);
+
+        StringBuffer sbNv = new StringBuffer();
+
+        sbNv.append("Tên nhân viên bán vé \n");
+        sbNv.append(nvBv + "\n");
+        sbNv.append("Tên nhân viên lái xe \n");
+        sbNv.append(nvLx + "\n");
+        sbNv.append("Số xe: " + sx + "\n");
+
+        Bitmap btm_nv = textAsBitmap1(sbNv.toString(), 600, 23);
+        Bitmap merge_title_nv = twoBtmap2One(btm_merge_all_title, btm_nv);
+
+        JSONArray jsonResponse = new JSONArray(a);
+        StringBuffer sbPrice = new StringBuffer();
+        sbPrice.append("Mệnh giá \n");
+        StringBuffer sbCount = new StringBuffer();
+        sbCount.append("Số lượng\n");
+        for (int i=0;i<jsonResponse.length();i++) {
+            sbPrice.append(jsonResponse.getJSONObject(i).getString("id").toString()+ " VNĐ\n");
+            sbCount.append(jsonResponse.getJSONObject(i).getString("name").toString() + "\n");
+        }
+        // send(new byte[] { 0x1b, 0x61, 0x01 });
+        sbPrice.append("Nạp thẻ\n");
+        sbPrice.append("Quẹt thẻ");
+
+        sbCount.append("323.000\n");
+        sbCount.append("222.000");
+
+        Bitmap bitmap = textAsBitmap1(sbPrice.toString(),400, 20);
+        Bitmap bitmap1 = textAsBitmap1(sbCount.toString(),200, 20);
+        Bitmap merge_btm = twoBtmap2One1(bitmap, bitmap1);
+
+        StringBuffer sbThu = new StringBuffer();
+        sbThu.append("Thu:\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t 230000 VNĐ");
+
+        Bitmap btm_thu = textAsBitmapBold(sbThu.toString(), 600, 26, BOLD_NORMAL);
+        Bitmap btm_merge_content_thu = twoBtmap2One(merge_btm, btm_thu);
+
+        Bitmap btm_merge_header_content = twoBtmap2One(merge_title_nv, btm_merge_content_thu);
+
+        StringBuffer sbFooter = new StringBuffer();
+        sbFooter.append("Đăng nhập lúc 17:02:54 05-01-2019\n");
+        sbFooter.append("In ngày: 17:03:05 Ngày 05-01-2019\n");
+        sbFooter.append("In lúc 90 Phan Bội Châu Tam Kỳ, QN\n\n");
+
+        Bitmap btm_footer = textAsBitmap1(sbFooter.toString(), 600, 20);
+        Bitmap btm_merge_header_content_footer = twoBtmap2One(btm_merge_header_content, btm_footer);
+        btm_merge_header_content_footer =  newBitmap(btm_merge_header_content_footer);
+        final byte[] b=draw2PxPoint(btm_merge_header_content_footer);
+        send(new byte[] { 0x1d, 0x61, 0x00 });
+        new Handler().postDelayed(new Runnable() {
+            public void run() {
+                if (isCanprint) {
+                    send(b);
+                    send(new byte[]{0x1d,0x0c});
+
+                    //��ӡ5�����з���˺ֽ������ֽ���ж�ʹ�ÿ��У�
+                    send(new byte[] { 0x0a, 0x0a,0x0a,0x0a});
+
+                }
+            }
+        }, 500);
+    }
+
+    @ReactMethod
+    public void printCard(
+            String company, String address, String phone,
+            String mst, String kh,String mt, String nv,String price, String sum,
+            String time, String date
+    ){
+        String bigTitle = "HOÁ ĐƠN THANH TOÁN";
+        StringBuffer sbTitle = new StringBuffer();
+        sbTitle.append(company+"\n");
+        sbTitle.append(""+address+"\n");
+        sbTitle.append("ĐT: "+ phone +"\n");
+        sbTitle.append("Ký hiệu："+kh+"\t\t\t\t"+ "MST: "+ mst + "\n");
+
+        Bitmap btm_title = textAsBitmap1(sbTitle.toString(), 600, 20);
+        Bitmap btm_bigTitle = textAsBitmapBold(bigTitle, 600, 30, BOLD_CENTER);
+        Bitmap btm_merge_title_bigtTitle = twoBtmap2One(btm_title, btm_bigTitle);
+
+        StringBuffer sb1 = new StringBuffer();
+        sb1.append("Nạp thẻ trả trước\n");
+        sb1.append("Mã thẻ:" +mt);
+
+        Bitmap btm_sb1 = textAsBitmap1(sb1.toString(), 600, 25);
+        Bitmap btm_merge_allTitle_sb1 = twoBtmap2One(btm_merge_title_bigtTitle, btm_sb1);
+
+        Bitmap sub1_btm = textAsBitmap1("Giá tiền:", 200, 25);
+        Bitmap btm_price = textAsBitmapBold(price+ " VNĐ", 400, 25, BOLD_NORMAL);
+        Bitmap btm_merge_sub1_price = twoBtmap2One1(sub1_btm, btm_price);
+
+        Bitmap sub2_btm = textAsBitmap1("NV:", 200, 25);
+        Bitmap btm_nv = textAsBitmapBold(nv, 400, 25, BOLD_NORMAL);
+        Bitmap btm_merge_sub2_price = twoBtmap2One1(sub2_btm, btm_nv);
+
+        Bitmap btm_merge_sub1_sub2 = twoBtmap2One(btm_merge_sub1_price, btm_merge_sub2_price);
+
+        Bitmap sub3_btm = textAsBitmap1("Tổng số :", 200, 25);
+        Bitmap btm_sodu = textAsBitmapBold(sum + " VNĐ", 400, 25, BOLD_NORMAL);
+        Bitmap btm_merge_sub3_sodu = twoBtmap2One1(sub3_btm, btm_sodu);
+
+        Bitmap btm_merge_sub_1_2_3 = twoBtmap2One(btm_merge_sub1_sub2, btm_merge_sub3_sodu);
+        Bitmap btm_merge_title_sub = twoBtmap2One(btm_merge_allTitle_sb1, btm_merge_sub_1_2_3);
+
+        StringBuffer sb2 = new StringBuffer();
+        sb2.append("Mua lúc: "+ time+ "\t Ngày: "+date);
+        Bitmap btm_sub2 = textAsBitmap1(sb2.toString(), 600, 25);
+
+        Bitmap btm_merge_all = twoBtmap2One(btm_merge_title_sub, btm_sub2);
+
+        btm_merge_all = newBitmap(btm_merge_all);
+
+        final  byte[] b=draw2PxPoint(btm_merge_all);
+        send(new byte[] { 0x1d, 0x61, 0x00 });
+        new Handler().postDelayed(new Runnable() {
+            public void run() {
+                if (isCanprint) {
+                    send(b);
+                    send(new byte[]{0x1d,0x0c});
+
+                    //��ӡ5�����з���˺ֽ������ֽ���ж�ʹ�ÿ��У�
+                    send(new byte[] { 0x0a, 0x0a,0x0a,0x0a});
+
+                }
+            }
+        }, 500);
+
+
+    }
     private Bitmap newBitmap(Bitmap bit1) {
         int width = bit1.getWidth();
         int height = bit1.getHeight();
@@ -266,11 +649,21 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
         return bitmap;
     }
 
+    private void setBitmapBorder(Canvas canvas) {
+        Rect rect = canvas.getClipBounds();
+        Paint paint = new Paint();
+        // ???�?????
+        paint.setColor(Color.BLACK);
+        paint.setStyle(Paint.Style.FILL_AND_STROKE);
+        // ???�????
+        paint.setStrokeWidth(10);
+        canvas.drawRect(rect, paint);
+    }
+
     @Override
     public void onHostResume() {
 
     }
-
 
     @Override
     public void onHostPause() {
@@ -362,9 +755,30 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
         textPaint.setColor(Color.BLACK);
 
         textPaint.setTextSize(textSize);
-
+        textPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.NORMAL));
         StaticLayout layout = new StaticLayout(text, textPaint, width,
                 Layout.Alignment.ALIGN_NORMAL, 1.3f, 0.0f, true);
+        Bitmap bitmap = Bitmap.createBitmap(layout.getWidth(),
+                layout.getHeight() +10, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        canvas.translate(10, 10);
+        canvas.drawColor(Color.WHITE);
+
+        layout.draw(canvas);
+        return bitmap;
+
+    }
+    public static Bitmap textAsBitmapBold(String text, int width, float textSize, Layout.Alignment position) {
+
+        TextPaint textPaint = new TextPaint();
+
+        textPaint.setColor(Color.BLACK);
+
+        textPaint.setTextSize(textSize);
+        textPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+        StaticLayout layout =                layout = new StaticLayout(text, textPaint, width,
+                position, 1.3f, 0.0f, true);;
+
         Bitmap bitmap = Bitmap.createBitmap(layout.getWidth(),
                 layout.getHeight() +5, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
@@ -376,6 +790,7 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
 
     }
 
+
     public static Bitmap textAsBitmap2(String text, int width, float textSize) {
 
         TextPaint textPaint = new TextPaint();
@@ -386,6 +801,27 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
 
         StaticLayout layout = new StaticLayout(text, textPaint, width,
                 Layout.Alignment.ALIGN_CENTER, 1.3f, 0.0f, true);
+        Bitmap bitmap = Bitmap.createBitmap(layout.getWidth(),
+                layout.getHeight() +7, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        canvas.translate(10, 10);
+        canvas.drawColor(Color.WHITE);
+
+        layout.draw(canvas);
+        return bitmap;
+
+    }
+
+    public static Bitmap textAsBitmap3(String text, int width, float textSize) {
+
+        TextPaint textPaint = new TextPaint();
+
+        textPaint.setColor(Color.BLACK);
+
+        textPaint.setTextSize(textSize);
+
+        StaticLayout layout = new StaticLayout(text, textPaint, width,
+                Layout.Alignment.ALIGN_NORMAL, 1.3f, 0.0f, true);
         Bitmap bitmap = Bitmap.createBitmap(layout.getWidth(),
                 layout.getHeight() +7, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
@@ -520,13 +956,107 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
         return newbm;
     }
 
-//    class MBroadcastReceiver extends BroadcastReceiver {
-//        @Override
-//        public void onReceive(Context context, Intent intent) {
-//            // TODO Auto-generated method stub
-//            Log.d("no paper", "no paper");
-//
-//        }
-//    }
+    class MBroadcastReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // TODO Auto-generated method stub
+            Toast.makeText(context, "no paper", Toast.LENGTH_LONG).show();
+
+        }
+    }
+    private void readData() {
+        Log.d("read data", "read data");
+        new Thread() {
+            public void run() {
+                while (isOpen) {
+                    Log.d("check data", "check data");
+                    int ret = 0;
+                    byte[] buf = new byte[MAX_RECV_BUF_SIZE + 1];
+                    ret = mCommonApi.readComEx(mComFd, buf, MAX_RECV_BUF_SIZE,
+                            0, 0);
+
+                    Log.d("check ret", ret+ "");
+                    if (ret <= 0) {
+                        Log.d("", "read failed!!!! ret:" + ret);
+                        try {
+                            sleep(1000);
+                        } catch (InterruptedException e) {
+                            // TODO Auto-generated catch block
+                            e.printStackTrace();
+                        }
+                        continue;
+                    } else {
+                        Log.e("", "1read success:");
+                    }
+
+                    recv = new byte[ret];
+                    System.arraycopy(buf, 0, recv, 0, ret);
+
+                    String str = byteToString(buf, buf.length);
+					Log.e("no paper", "abcde:" + str);
+
+                    if (str.contains("14 00 0C 0F")) {
+                        isCanprint = false;
+                        Log.d("no paper", "no paper");
+                        Intent mIntent = new Intent("NOPAPER");
+                        context.sendBroadcast(mIntent);
+                    } else {
+                        isCanprint=true;
+                        try {
+                            strRead = new String(recv, "UTF-8");
+
+                            Log.e("", "1数据:" + strRead);
+                        } catch (UnsupportedEncodingException e) {
+                            // TODO Auto-generated catch block
+                            e.printStackTrace();
+                        }
+
+//						StringBuffer sb = new StringBuffer();
+//						for (int i = 0; i < recv.length; i++) {
+//							if (recv[i] == 0x0D) {
+//								sb.append("\n");
+//							} else {
+//								sb.append((char) recv[i]);
+//							}
+//						}
+
+                        String s =strRead;
+                        if (strRead != null) {
+//                            Message msg = handler.obtainMessage(SHOW_RECV_DATA);
+//                            msg.obj = s;
+//                            msg.sendToTarget();
+                        }
+                    }
+                }
+            }
+        }.start();
+    }
+
+
+    public String byteToString(byte[] b, int size) {
+        byte high, low;
+        byte maskHigh = (byte) 0xf0;
+        byte maskLow = 0x0f;
+
+        StringBuffer buf = new StringBuffer();
+
+        for (int i = 0; i < size; i++) {
+            high = (byte) ((b[i] & maskHigh) >> 4);
+            low = (byte) (b[i] & maskLow);
+            buf.append(findHex(high));
+            buf.append(findHex(low));
+            buf.append(" ");
+        }
+        return buf.toString();
+    }
+
+    private char findHex(byte b) {
+        int t = new Byte(b).intValue();
+        t = t < 0 ? t + 16 : t;
+        if ((0 <= t) && (t <= 9)) {
+            return (char) (t + '0');
+        }
+        return (char) (t - 10 + 'A');
+    }
 }
 

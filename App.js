@@ -13,7 +13,7 @@ import {
   NativeModules,
   TouchableOpacity
 } from 'react-native';
-
+import ButtonA from './button';
 const instructions = Platform.select({
   ios: 'Press Cmd+R to reload,\n' + 'Cmd+D or shake for dev menu',
   android:
@@ -34,8 +34,8 @@ export default class App extends Component<Props> {
   }
 
   _printWithMergeBitMap = () => {
-    PrintModule.printWithMergeBitMap(
-      'CÔNG TY CP ĐẦU TƯ HẠ TẦNG QUẢNG NAM',
+    PrintModule.printWithMergeBitMap1(
+      'CÔNG TY CP ĐẦU TƯ PHÁT TRIỂN HẠ TẦNG QUẢNG NAM',
       '90 Phan Bội Châu, P.Tân Thạnh, Tam Kỳ, Quảng Nam',
       '02353.555.111',
       '4000806573',
@@ -50,18 +50,81 @@ export default class App extends Component<Props> {
       '6/11/2017  17:32:11'
     );
   };
+
+  _printTest = () => {
+    PrintModule.printTest(
+      'CÔNG TY CP ĐẦU TƯ PHÁT TRIỂN HẠ TẦNG QUẢNG NAM',
+      '90 Phan Bội Châu, P.Tân Thạnh, Tam Kỳ, Quảng Nam',
+      '02353.555.111',
+      '4000806573',
+      '01VEDB2/005',
+      'ĐÀO CÔNG DANH',
+      'ĐÀO CÔNG TANH',
+      '0029813'
+    );
+  };
+
+  _check = () => {
+    PrintModule.readData();
+  };
+
+  _printCard = () => {
+    PrintModule.printCard(
+      'CÔNG TY CP ĐẦU TƯ PHÁT TRIỂN HẠ TẦNG QUẢNG NAM',
+      '90 Phan Bội Châu, P.Tân Thạnh, Tam Kỳ, Quảng Nam',
+      '02353.555.111',
+      '4000806573',
+      '01VEDB2/005',
+      '123123EDF',
+      'ĐÀO CÔNG TANH',
+      '5.000',
+      '232.000',
+      '17:32:11',
+      '6/11/2017'
+    );
+  };
+  abc = data => {
+    alert(data);
+  };
+
+  _printTotal = () => {
+    const a = JSON.stringify([
+      { price: '30.000', qty: '123' },
+      { price: '30.000', qty: '123' },
+      { price: '30.000', qty: '123' },
+      { price: '30.000', qty: '123' }
+    ]);
+    PrintModule.printTotal(
+      'CÔNG TY CP ĐẦU TƯ PHÁT TRIỂN HẠ TẦNG QUẢNG NAM',
+      '90 Phan Bội Châu, P.Tân Thạnh, Tam Kỳ, Quảng Nam',
+      '02353.555.111',
+      '4000806573',
+      '01VEDB2/005',
+      'ĐÀO CÔNG TANH',
+      'ĐÀO CÔNG TANH',
+      '123123EDF',
+      '5.500',
+      '11.000',
+      '39.000',
+      a,
+      '6/11/2017-7:32:11',
+      '7:32:11',
+      '6/11/2017'
+    );
+  };
   render() {
     return (
       <View style={styles.container}>
         <Text onPress={() => PrintModule.init()} style={styles.welcome}>
           Welcome to React Native!
         </Text>
-        <Text
-          style={styles.instructions}
-          onPress={() => PrintModule.printTwoBitMap()}
+        <ButtonA title={'das'} onDetect={this.abc} />
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => PrintModule.printText()}
         >
-          printTwoBitMap
-        </Text>
+          <Text style={styles.instructions}>print text</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={1}
           style={styles.button}
@@ -69,24 +132,20 @@ export default class App extends Component<Props> {
         >
           <Text style={styles.instructions}>printWithMergeBitMap</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.button}>
-          <Text
-            style={styles.instructions}
-            onPress={() => PrintModule.printTwoBitMap()}
-          >
-            printTwoBitMap
-          </Text>
+        <TouchableOpacity style={styles.button} onPress={this._printTest}>
+          <Text style={styles.instructions}>printTest</Text>
         </TouchableOpacity>
-        <Text
-          style={styles.instructions}
-          onPress={() => PrintModule.printBarCode(1, 300, 300, '1321')}
+        <TouchableOpacity style={styles.button} onPress={this._printCard}>
+          <Text style={styles.instructions}>print card</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={this._printTotal}>
+          <Text style={styles.instructions}>print total</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => PrintModule.printBill()}
         >
-          print barcode
-        </Text>
-        <TouchableOpacity style={styles.button}>
-          <Text onPress={this._printWithBitmap} style={styles.instructions}>
-            print bitmap
-          </Text>
+          <Text style={styles.instructions}>print bill</Text>
         </TouchableOpacity>
       </View>
     );

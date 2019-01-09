@@ -25,6 +25,7 @@
             <intent-filter>
                 <action android:name="COM.DEMO.QSSERVICE" />
             </intent-filter>
+
         </service>
     </application>
 
