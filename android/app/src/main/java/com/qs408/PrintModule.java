@@ -22,11 +22,13 @@ import android.util.Log;
 import android.widget.Toast;
 import android.zyapi.CommonApi;
 
+import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.LifecycleEventListener;
+import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
-import com.wiget.BarcodeCreater;
+//import com.wiget.BarcodeCreater;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -105,10 +107,10 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
                 }
             }
         }, 2000);
-       mBroadcastReceiver = new MBroadcastReceiver();
+        mBroadcastReceiver = new MBroadcastReceiver();
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction("NOPAPER");
-      context.registerReceiver(mBroadcastReceiver, intentFilter);
+        context.registerReceiver(mBroadcastReceiver, intentFilter);
     }
 
     public static void open() {
@@ -153,182 +155,14 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
 
     }
 
+
     @ReactMethod
-    public void printText(){
-        send(new byte[] { 0x1d, 0x61, 0x00 });
-        new Handler().postDelayed(new Runnable() {
-            public void run() {
-                if (isCanprint) {
-
-                    String a = "dwqdwq";
-                    try {
-                        send(a.getBytes("UTF-8"));
-                        send(new byte[]{0x1d,0x0c});
-
-                        //��ӡ5�����з���˺ֽ������ֽ���ж�ʹ�ÿ��У�
-                        send(new byte[] { 0x0a, 0x0a,0x0a,0x0a});
-                    } catch (UnsupportedEncodingException e) {
-                        e.printStackTrace();
-                    }
-
-                }
-            }
-        }, 500);
-    }
-    @ReactMethod
-    public  void printBitmap(String text){
-
-        StringBuffer sb=new StringBuffer();
-//        sb.append("CÔNG TY CỔ PHẦN ĐẦU TƯ \n");
-//        sb.append("HẠ TẦNG QUẢNG NAM\n");
-//        sb.append("90 Phan Bội Châu Tam Kỳ QN.VN\t\t\t\t\t\t\t\t\t\t\n");
-//        sb.append("Điện thoại: "+ "0235355 411\t\t\t\t\t\t\t\t\t\t\t\t\t\t\n");
-//        sb.append("Ký hiêu："+text+"\t\t\t\t\t MST："+"432434\t\t\t\t\t\n");
-//        sb.append("VÉ XE BUÝT THEO LƯỢT \n");
-//        sb.append("NV: ĐÀO CÔNG DANH\n");
-//        sb.append("GIÁ: 5000 vnd/Lượt\n");
-//        sb.append("Giá vé đã bao gồm bảo hiểm khách hang \n");
-//        sb.append("16/11/2017\t\t 17:32:11 \n");
-//        sb.append(" IN TẠI: CÔNG TY CỔ PHẦN ĐẦU TƯ HẠ TẦNG QUẢNG NAM \n\n\n\n");
-        sb.append("CÔNG TY CỔ PHẦN ĐẦU TƯ HẠ TẦNG QUẢNG NAM\n");
-        sb.append("90 Phan Bội Châu, P.Tân Thạnh, Tam Kỳ, Quảng Nam\n");
-        sb.append("ĐT: "+ "02353.555.111\t\t\t\t\t\tMST："+"4000806573 \n");
-        sb.append(("Mẫu số："+"01VEDB2/005"+"\t\t\t\t\t Ký hiệu："+"QN/18T\t\t\t\t\t\n"));
-        sb.append("Số vé: 0029813 \n");
-        sb.append("\t\t\t\t\tVÉ XE BUÝT THEO LƯỢT \n");
-        sb.append("\t\t\t\t\t (Liên 2: Giao cho khách hàng)\n");
-        sb.append("Tuyến số: 33\t\t Trạm: Tam Kỳ\n");
-        sb.append("NV: ĐÀO CÔNG DANH\n");
-        sb.append("Giá vé: 5000 vnd/Lượt\n");
-        sb.append("Giá vé đã bao gồm bảo hiểm khách hàng \n");
-        sb.append("16/11/2017\t\t 17:32:11 \n");
-        sb.append(" IN TẠI: CÔNG TY CỔ PHẦN ĐẦU TƯ HẠ TẦNG QUẢNG NAM \n\n\n\n");
-        Bitmap bitmap = textAsBitmap(sb.toString(), 23.0f);
-        byte[] b=draw2PxPoint(bitmap);
-        send(b);
-    }
-    @ReactMethod
-    public void printBill(String a) throws UnsupportedEncodingException {
-        Log.d("mComFd", String.valueOf(mComFd));
-        StringBuffer sb=new StringBuffer();
-        sb.append("\n giá："+a+"\n");
-        sb.append(" nhà："+a+"\n");
-        sb.append(" địa chỉ \t："+a+"\n时间："+a+"\n");
-        sb.append(" nhà đất："+a+"\n");
-        sb.append(" điện thoại："+a+"\n");
-        sb.append(" acd："+a+"\n\n\n\n\n\n");
-
-        // send(new byte[] { 0x1b, 0x61, 0x00 });
-        send(new byte[]{0x1B,0x23,0x23,0x53,0x4C,0x41,0x4E,0x29});
-        send((sb.toString()+"\n").getBytes("UTF-8"));
-        // printText(sb.toString());
-    }
-    @ReactMethod
-    public  void printBarCode(int align, int width, int height, String data){
-        switch (align) {
-            case 0:
-                send(new byte[] { 0x1b, 0x61, 0x00 });
-                break;
-            case 1:
-                send(new byte[] { 0x1b, 0x61, 0x01 });
-                break;
-            case 2:
-                send(new byte[] { 0x1b, 0x61, 0x02 });
-                break;
-
-            default:
-                break;
-        }
-
-        Bitmap mBitmap = BarcodeCreater.creatBarcode(getReactApplicationContext(),
-                data, width, height, true, 1);
-        byte[] printData = draw2PxPoint1(mBitmap);
-        send(printData);
-    }
-
-//    @ReactMethod
-//    public void printWithMergeBitMap(String company, String address, String phone,
-//                                     String mst, String ms, String kh, String sv,String kv, String ts,
-//                                     String tram, String nv, String gia, String ngay){
-//        Log.d("print", "printWithMergeBitMap");
-//        String str1 = company;
-//        String str5 = kv.toUpperCase();
-//        String date = "\tIn ngày: " + ngay;
-//        StringBuffer sb = new StringBuffer();
-//        sb.append("\t"+address+"\n");
-//        sb.append("\tĐT: "+ phone +"\t\t\t\t\t\tMST："+ mst +"\n" );
-//        sb.append(("\tMẫu số："+ms+"\t\t\t\t\t Ký hiệu："+kh+"\t\t\t\t\t\n"));
-//        sb.append("\tSố vé: "+sv+"\t");
-//        String merge_str = sb.toString();
-//
-//        StringBuffer sb1 = new StringBuffer();
-//        // sb1.append("\t\t\t\t\t\t (Liên 2: Giao cho khách hàng)\n");
-//        sb1.append("\t"+"Tuyến số: "+ts+"\t\t\tTrạm: " + tram +"\n");
-//        sb1.append("\tNV: "+nv+"\n");
-//        // sb1.append(" Trạm: " + tram +"\n");
-//        sb1.append("\tGiá vé: "+gia+ " VNĐ/Lượt");
-//        // sb1.append("\t(Giá vé đã bao gồm bảo hiểm hành khách)");
-//        String merge_str1= sb1.toString();
-//
-//        StringBuffer sb2 = new StringBuffer();
-//        sb2.append("\tIN TẠI: "+company+"\n\n\n");
-//
-//        String merge_str2= sb2.toString();
-//
-//
-//        StringBuffer sup1 = new StringBuffer();
-//        sup1.append("(Liên 2: Giao cho khách hàng)");
-//        Bitmap btm_sup1 = textAsBitmap2(sup1.toString(), 550, 20);
-//
-//        StringBuffer sup2 = new StringBuffer();
-//        sup2.append("\t(Giá vé đã bao gồm bảo hiểm hành khách)");
-//        Bitmap btm_sup2 = textAsBitmap2(sup2.toString(), 550, 20);
-//
-//        Bitmap btm_name1 = textAsBitmap2(str1.toUpperCase(), 550, 24);
-//        Bitmap btm_name2 = textAsBitmap1(merge_str, 550, 20);
-//        Bitmap btm_name1_2 = twoBtmap2One(btm_name1, btm_name2);
-//
-//
-//
-//
-//        Bitmap btm_name3 = textAsBitmap2(str5, 550, 30);
-//        Bitmap btm_merge_sup1 = twoBtmap2One(btm_name3,  btm_sup1);
-//        Bitmap str_bitmap = twoBtmap2One(btm_name1_2, btm_merge_sup1);
-//
-//        Bitmap btm_merge_str1 = textAsBitmap1(merge_str1, 550, 26);
-//        Bitmap btm_merge_sup2 = twoBtmap2One(btm_merge_str1,  btm_sup2);
-//        Bitmap btm_merge_str2 = twoBtmap2One(str_bitmap, btm_merge_sup2);
-//
-//        Bitmap btm_sb3 = textAsBitmap1(date, 550, 25);
-//        Bitmap btm_merge_str3 = twoBtmap2One(btm_merge_str2, btm_sb3);
-//
-//        Bitmap btm_name4 = textAsBitmap1(merge_str2, 550, 20);
-//        Bitmap btm_merge_str4 = twoBtmap2One(btm_merge_str3, btm_name4);
-//
-//        str_bitmap = newBitmap(btm_merge_str4);
-//        final  byte[] b=draw2PxPoint(str_bitmap);
-//        send(new byte[] { 0x1d, 0x61, 0x00 });
-//        new Handler().postDelayed(new Runnable() {
-//            public void run() {
-//                if (isCanprint) {
-//                    send(b);
-//                    send(new byte[]{0x1d,0x0c});
-//
-//                    //��ӡ5�����з���˺ֽ������ֽ���ж�ʹ�ÿ��У�
-//                    send(new byte[] { 0x0a, 0x0a,0x0a,0x0a});
-//
-//                }
-//            }
-//        }, 500);
-//
-//    }
-    @ReactMethod
-    public void printWithMergeBitMap1(String company, String address, String phone,
+    public void printTicket(String company, String address, String phone,
                                      String mst, String ms, String kh, String sv,String kv, String ts,
-                                     String tram, String nv, String gia, String ngay){
+                                     String tram, String nv, String gia, String ngay, final  Promise promise){
         String str1 = company;
         String str5 = kv.toUpperCase();
-        String date = "\tIn ngày: " + ngay;
+        String date = "In ngày: " + ngay;
         StringBuffer sb = new StringBuffer();
         sb.append(address+"\n");
         sb.append("ĐT: "+ phone +"\t\t\t\t\t\t\t MST："+ mst +"\n" );
@@ -347,7 +181,7 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
 
         StringBuffer sb2 = new StringBuffer();
         sb2.append("In tại: "+company+"\n");
-        sb2.append("MST: "+mst +"\n\n\n\n\n");
+        sb2.append("MST: "+mst +"\n");
 
         String merge_str2= sb2.toString();
 
@@ -360,7 +194,7 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
         sup2.append("\t(Giá vé đã bao gồm bảo hiểm hành khách)");
         Bitmap btm_sup2 = textAsBitmap2(sup2.toString(), 600, 20);
 
-        Bitmap btm_name1 = textAsBitmap1(str1.toUpperCase(), 600, 21);
+        Bitmap btm_name1 = textAsBitmap1(str1.toUpperCase(), 600, 22);
         Bitmap btm_name2 = textAsBitmap1(merge_str, 600, 20);
         Bitmap btm_name1_2 = twoBtmap2One(btm_name1, btm_name2);
 
@@ -381,8 +215,23 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
         Bitmap btm_name4 = textAsBitmap1(merge_str2, 600, 18);
         Bitmap btm_merge_str4 = twoBtmap2One(btm_merge_str3, btm_name4);
         str_bitmap = newBitmap(btm_merge_str4);
-        byte[] b=draw2PxPoint(str_bitmap);
-        send(b);
+        final  byte[] b=draw2PxPoint(str_bitmap);
+        send(new byte[] { 0x1d, 0x61, 0x00 });
+        new Handler().postDelayed(new Runnable() {
+            public void run() {
+                if (isCanprint) {
+                    send(b);
+                    send(new byte[]{0x1d,0x0c});
+
+                    //��ӡ5�����з���˺ֽ������ֽ���ж�ʹ�ÿ��У�
+                    send(new byte[] { 0x0a, 0x0a,0x0a,0x0a});
+                    promise.resolve(isCanprint);
+
+                }else {
+                    promise.resolve(isCanprint);
+                }
+            }
+        }, 500);
 
     }
     @ReactMethod
@@ -391,7 +240,7 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
             String mst, String kh,
             String nvBv, String nvLx, String sx,
             String napthe, String quetthe, String totals, String ticket, String timeDn,
-            String hours, String day
+            String hours, String day, final Promise promise
     ) throws JSONException {
 //        String a = "[{ id: 24000, name: 24 }, { id: 2500, name: 24 }]";
         StringBuffer sbBigTt = new StringBuffer();
@@ -432,8 +281,8 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
         Bitmap btm_merge_col_line = twoBtmap2One(merge_btm_col_1_2, btm_line);
         StringBuffer sbBottomCol1 = new StringBuffer();
         StringBuffer sbBottomCol2 = new StringBuffer();
-        sbBottomCol1.append("Nạp thẻ\n");
-        sbBottomCol1.append("Quẹt thẻ");
+        sbBottomCol1.append("Nạp thẻ:\n");
+        sbBottomCol1.append("Quẹt thẻ:");
 
         sbBottomCol2.append(napthe + "\n");
         sbBottomCol2.append("-" + quetthe + "");
@@ -476,15 +325,30 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
 
         StringBuffer sbFooter = new StringBuffer();
         sbFooter.append("Đăng nhập lúc: "+timeDn + "\n");
-        sbFooter.append("In lúc: "+ hours + "\tNgày "+ day +"\n");
-        sbFooter.append("In tại: 90 Phan Bội Châu Tam Kỳ, QN\n");
-        sbFooter.append("MST: "+ mst+"\n\n\n\n");
+        sbFooter.append("In lúc: "+ hours + "\tNgày: "+ day +"\n");
+        sbFooter.append("In tại: 90 Phan Bội Châu Tam Kỳ, QN\n\n\n");
+//        sbFooter.append("MST: "+ mst+"\n\n\n\n");
 
         Bitmap btm_footer = textAsBitmap1(sbFooter.toString(), 600, 20);
         Bitmap btm_merge_header_content_footer = twoBtmap2One(btm_merge_header_content, btm_footer);
         btm_merge_header_content_footer =  newBitmap(btm_merge_header_content_footer);
-        byte[] b=draw2PxPoint(btm_merge_header_content_footer);
-        send(b);
+        final byte[] b=draw2PxPoint(btm_merge_header_content_footer);
+        send(new byte[] { 0x1d, 0x61, 0x00 });
+        new Handler().postDelayed(new Runnable() {
+            public void run() {
+                if (isCanprint) {
+                    send(b);
+                    send(new byte[]{0x1d,0x0c});
+
+                    //��ӡ5�����з���˺ֽ������ֽ���ж�ʹ�ÿ��У�
+                    send(new byte[] { 0x0a, 0x0a,0x0a,0x0a});
+                    promise.resolve(isCanprint);
+
+                }else {
+                    promise.resolve(isCanprint);
+                }
+            }
+        }, 500);
     }
     @ReactMethod
     public void printTest(
@@ -573,7 +437,7 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
     public void printCard(
             String company, String address, String phone,
             String mst, String kh,String mt, String nv,String price, String sum,
-            String time, String date
+            String time, String date, final Promise promise
     ){
         String bigTitle = "HOÁ ĐƠN THANH TOÁN";
         StringBuffer sbTitle = new StringBuffer();
@@ -628,7 +492,9 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
 
                     //��ӡ5�����з���˺ֽ������ֽ���ж�ʹ�ÿ��У�
                     send(new byte[] { 0x0a, 0x0a,0x0a,0x0a});
-
+                    promise.resolve(isCanprint);
+                }else {
+                    promise.resolve(isCanprint);
                 }
             }
         }, 500);
@@ -975,25 +841,25 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
                     ret = mCommonApi.readComEx(mComFd, buf, MAX_RECV_BUF_SIZE,
                             0, 0);
 
-                    Log.d("check ret", ret+ "");
-                    if (ret <= 0) {
-                        Log.d("", "read failed!!!! ret:" + ret);
-                        try {
-                            sleep(1000);
-                        } catch (InterruptedException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
-                        }
-                        continue;
-                    } else {
-                        Log.e("", "1read success:");
-                    }
+//                    Log.d("check ret", ret+ "");
+//                    if (ret <= 0) {
+//                        Log.d("", "read failed!!!! ret:" + ret);
+//                        try {
+//                            sleep(1000);
+//                        } catch (InterruptedException e) {
+//                            // TODO Auto-generated catch block
+//                            e.printStackTrace();
+//                        }
+//                        continue;
+//                    } else {
+//                        Log.e("", "1read success:");
+//                    }
 
                     recv = new byte[ret];
                     System.arraycopy(buf, 0, recv, 0, ret);
 
                     String str = byteToString(buf, buf.length);
-					Log.e("no paper", "abcde:" + str);
+                    Log.e("no paper", "abcde:" + str);
 
                     if (str.contains("14 00 0C 0F")) {
                         isCanprint = false;
@@ -1020,18 +886,23 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
 //							}
 //						}
 
-                        String s =strRead;
-                        if (strRead != null) {
+//                        String s =strRead;
+//                        if (strRead != null) {
 //                            Message msg = handler.obtainMessage(SHOW_RECV_DATA);
 //                            msg.obj = s;
 //                            msg.sendToTarget();
-                        }
+//                        }
                     }
                 }
             }
         }.start();
     }
 
+    public void check(String a){
+        if(a.contains("11 00 00 00")) {
+            Log.d("success", "success");
+        }
+    }
 
     public String byteToString(byte[] b, int size) {
         byte high, low;
@@ -1059,4 +930,5 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
         return (char) (t - 10 + 'A');
     }
 }
+
 

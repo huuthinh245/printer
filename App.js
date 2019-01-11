@@ -30,11 +30,11 @@ export default class App extends Component<Props> {
     };
   }
   componentDidMount() {
-    PrintModule.init();
+    // PrintModule.init();
   }
 
-  _printWithMergeBitMap = () => {
-    PrintModule.printWithMergeBitMap1(
+  _printWithMergeBitMap = async () => {
+    const data = await PrintModule.printTicket(
       'CÔNG TY CP ĐẦU TƯ PHÁT TRIỂN HẠ TẦNG QUẢNG NAM',
       '90 Phan Bội Châu, P.Tân Thạnh, Tam Kỳ, Quảng Nam',
       '02353.555.111',
@@ -49,6 +49,7 @@ export default class App extends Component<Props> {
       '5.000',
       '6/11/2017  17:32:11'
     );
+    console.log(data);
   };
 
   _printTest = () => {
@@ -68,8 +69,8 @@ export default class App extends Component<Props> {
     PrintModule.readData();
   };
 
-  _printCard = () => {
-    PrintModule.printCard(
+  _printCard = async () => {
+    const a = await PrintModule.printCard(
       'CÔNG TY CP ĐẦU TƯ PHÁT TRIỂN HẠ TẦNG QUẢNG NAM',
       '90 Phan Bội Châu, P.Tân Thạnh, Tam Kỳ, Quảng Nam',
       '02353.555.111',
@@ -82,6 +83,7 @@ export default class App extends Component<Props> {
       '17:32:11',
       '6/11/2017'
     );
+    console.log(a);
   };
   abc = data => {
     alert(data);
@@ -112,6 +114,10 @@ export default class App extends Component<Props> {
       '6/11/2017'
     );
   };
+
+  _testCallback = () => {
+    console.log('ads');
+  };
   render() {
     return (
       <View style={styles.container}>
@@ -141,11 +147,8 @@ export default class App extends Component<Props> {
         <TouchableOpacity style={styles.button} onPress={this._printTotal}>
           <Text style={styles.instructions}>print total</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.button}
-          onPress={() => PrintModule.printBill()}
-        >
-          <Text style={styles.instructions}>print bill</Text>
+        <TouchableOpacity style={styles.button} onPress={this._testCallback}>
+          <Text style={styles.instructions}>print callback</Text>
         </TouchableOpacity>
       </View>
     );
