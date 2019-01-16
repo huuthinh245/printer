@@ -11,16 +11,13 @@ import {
   Text,
   View,
   NativeModules,
-  TouchableOpacity
+  TouchableOpacity,
+  NativeEventEmitter
 } from 'react-native';
 import ButtonA from './button';
-const instructions = Platform.select({
-  ios: 'Press Cmd+R to reload,\n' + 'Cmd+D or shake for dev menu',
-  android:
-    'Double tap R on your keyboard to reload,\n' +
-    'Shake or press menu button for dev menu'
-});
+
 const { PrintModule } = NativeModules;
+const printStateEmitter = new NativeEventEmitter(PrintModule);
 type Props = {};
 export default class App extends Component<Props> {
   constructor(props) {
@@ -30,7 +27,13 @@ export default class App extends Component<Props> {
     };
   }
   componentDidMount() {
-    // PrintModule.init();
+    PrintModule.init();
+    this._listen = printStateEmitter.addListener('PRINT_PROCESS', () => {
+      alert('success');
+    });
+  }
+  componentWillUnmount() {
+    printStateEmitter.removeListener(this._listen);
   }
 
   _printWithMergeBitMap = async () => {

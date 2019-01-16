@@ -22,12 +22,15 @@ import android.util.Log;
 import android.widget.Toast;
 import android.zyapi.CommonApi;
 
+import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
+import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
 //import com.wiget.BarcodeCreater;
 
 import org.json.JSONArray;
@@ -40,14 +43,13 @@ import java.util.ArrayList;
 
 public class PrintModule extends ReactContextBaseJavaModule implements LifecycleEventListener {
     private static String mCurDev1 = "";
-
     private static int mComFd = -1;
     static CommonApi mCommonApi;
     private static  final Layout.Alignment BOLD_NORMAL = Layout.Alignment.ALIGN_NORMAL;
     private static  final Layout.Alignment BOLD_CENTER = Layout.Alignment.ALIGN_CENTER;
 
     public static boolean isCanprint = false;
-
+    public static boolean isSuccess = false;
     public static boolean isCanSend = true;
 
     public static boolean temHigh = false;
@@ -67,6 +69,7 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
     // SCAN按键监听
     private ScanBroadcastReceiver scanBroadcastReceiver;
     MBroadcastReceiver mBroadcastReceiver;
+    PrintBroadcastReceiver printBroadcastReceiver;
 
     Handler h;
 
@@ -111,6 +114,11 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction("NOPAPER");
         context.registerReceiver(mBroadcastReceiver, intentFilter);
+
+        printBroadcastReceiver = new PrintBroadcastReceiver();
+        IntentFilter intentFilter1 = new IntentFilter();
+        intentFilter1.addAction("PRINTSUCCESS");
+        context.registerReceiver(printBroadcastReceiver, intentFilter1);
     }
 
     public static void open() {
@@ -216,6 +224,7 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
         Bitmap btm_merge_str4 = twoBtmap2One(btm_merge_str3, btm_name4);
         str_bitmap = newBitmap(btm_merge_str4);
         final  byte[] b=draw2PxPoint(str_bitmap);
+        send(new byte[]{0x1D,0x23,0x53,(byte)0xD1,0x7A,(byte)0xF8,0x4d});
         send(new byte[] { 0x1d, 0x61, 0x00 });
         new Handler().postDelayed(new Runnable() {
             public void run() {
@@ -225,10 +234,9 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
 
                     //��ӡ5�����з���˺ֽ������ֽ���ж�ʹ�ÿ��У�
                     send(new byte[] { 0x0a, 0x0a,0x0a,0x0a});
-                    promise.resolve(isCanprint);
+                    send(new byte[]{0x1D, 0x23, 0x45});
+                    // promise.resolve(isSuccess);
 
-                }else {
-                    promise.resolve(isCanprint);
                 }
             }
         }, 500);
@@ -333,6 +341,7 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
         Bitmap btm_merge_header_content_footer = twoBtmap2One(btm_merge_header_content, btm_footer);
         btm_merge_header_content_footer =  newBitmap(btm_merge_header_content_footer);
         final byte[] b=draw2PxPoint(btm_merge_header_content_footer);
+        isSuccess = false;
         send(new byte[] { 0x1d, 0x61, 0x00 });
         new Handler().postDelayed(new Runnable() {
             public void run() {
@@ -499,6 +508,8 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
             }
         }, 500);
 
+    }
+    public void printListen() {
 
     }
     private Bitmap newBitmap(Bitmap bit1) {
@@ -830,6 +841,15 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
 
         }
     }
+
+    class PrintBroadcastReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            // TODO Auto-generated method stub
+            processPrint();
+
+        }
+    }
     private void readData() {
         Log.d("read data", "read data");
         new Thread() {
@@ -841,19 +861,19 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
                     ret = mCommonApi.readComEx(mComFd, buf, MAX_RECV_BUF_SIZE,
                             0, 0);
 
-//                    Log.d("check ret", ret+ "");
-//                    if (ret <= 0) {
-//                        Log.d("", "read failed!!!! ret:" + ret);
-//                        try {
-//                            sleep(1000);
-//                        } catch (InterruptedException e) {
-//                            // TODO Auto-generated catch block
-//                            e.printStackTrace();
-//                        }
-//                        continue;
-//                    } else {
-//                        Log.e("", "1read success:");
-//                    }
+                    Log.d("check ret", ret+ "");
+                    if (ret <= 0) {
+                        Log.d("", "read failed!!!! ret:" + ret);
+                        try {
+                            sleep(1000);
+                        } catch (InterruptedException e) {
+                            // TODO Auto-generated catch block
+                            e.printStackTrace();
+                        }
+                        continue;
+                    } else {
+                        Log.e("", "1read success:");
+                    }
 
                     recv = new byte[ret];
                     System.arraycopy(buf, 0, recv, 0, ret);
@@ -863,47 +883,34 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
 
                     if (str.contains("14 00 0C 0F")) {
                         isCanprint = false;
+                        isSuccess = false;
                         Log.d("no paper", "no paper");
                         Intent mIntent = new Intent("NOPAPER");
                         context.sendBroadcast(mIntent);
-                    } else {
-                        isCanprint=true;
-                        try {
-                            strRead = new String(recv, "UTF-8");
-
-                            Log.e("", "1数据:" + strRead);
-                        } catch (UnsupportedEncodingException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
-                        }
-
-//						StringBuffer sb = new StringBuffer();
-//						for (int i = 0; i < recv.length; i++) {
-//							if (recv[i] == 0x0D) {
-//								sb.append("\n");
-//							} else {
-//								sb.append((char) recv[i]);
-//							}
-//						}
-
-//                        String s =strRead;
-//                        if (strRead != null) {
-//                            Message msg = handler.obtainMessage(SHOW_RECV_DATA);
-//                            msg.obj = s;
-//                            msg.sendToTarget();
-//                        }
+                    }else {
+                        isCanprint = true;
+                    }
+                    if(str.contains("4D")){ //1D 42 45 D1 7A F8
+                        Log.e("print success", "" + str);
+                        isCanprint = true;
+                        isSuccess = true;
+                        Intent i = new Intent("PRINTSUCCESS");
+                        context.sendBroadcast(i);
                     }
                 }
             }
         }.start();
     }
 
-    public void check(String a){
-        if(a.contains("11 00 00 00")) {
-            Log.d("success", "success");
-        }
-    }
 
+    public void processPrint() {
+        WritableMap params;
+        params = Arguments.createMap();
+        params.putString("status", "success");
+
+        getReactApplicationContext().getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit("PRINT_PROCESS", params);
+
+    }
     public String byteToString(byte[] b, int size) {
         byte high, low;
         byte maskHigh = (byte) 0xf0;
