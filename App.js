@@ -33,7 +33,7 @@ export default class App extends Component<Props> {
     });
   }
   componentWillUnmount() {
-    printStateEmitter.removeListener(this._listen);
+    this._listen.remove();
   }
 
   _printWithMergeBitMap = async () => {
