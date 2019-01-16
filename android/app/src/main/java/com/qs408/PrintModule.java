@@ -167,7 +167,7 @@ public class PrintModule extends ReactContextBaseJavaModule implements Lifecycle
     @ReactMethod
     public void printTicket(String company, String address, String phone,
                                      String mst, String ms, String kh, String sv,String kv, String ts,
-                                     String tram, String nv, String gia, String ngay, final  Promise promise){
+                                     String tram, String nv, String gia, String ngay){
         String str1 = company;
         String str5 = kv.toUpperCase();
         String date = "In ngày: " + ngay;
